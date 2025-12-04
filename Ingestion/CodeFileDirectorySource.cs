@@ -6,6 +6,8 @@ namespace IDSChunk.Ingestion;
 public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSource
 {
     private const string SearchPattern = "*.cs";
+    private const string ExcludePattern = ".g.cs"; // What you want to exclude
+
     private static string GetDocumentHash(string filePath)
     {
         using var md5 = MD5.Create();
@@ -21,7 +23,11 @@ public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSourc
     public IEnumerable<CodeDocument> GetNewOrModifiedDocuments(IEnumerable<CodeDocument> existingDocuments)
     {
         var results = new List<CodeDocument>();
-        var codeFilenames = Directory.GetFiles(sourceDirectory, SearchPattern, SearchOption.AllDirectories);
+        var allCsFilenames = Directory.GetFiles(sourceDirectory, SearchPattern, SearchOption.AllDirectories);
+        var codeFilenames = allCsFilenames
+            .Where(filePath => !filePath.Contains(ExcludePattern, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
         var existingDocumentHashmap = existingDocuments.ToDictionary(d => d.RelativePath);
 
         foreach (var codeFilename in codeFilenames)
@@ -51,7 +57,11 @@ public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSourc
     /// <returns>Deleted documents</returns>
     public IEnumerable<CodeDocument> GetDeletedDocuments(IEnumerable<CodeDocument> existingDocuments)
     {
-        var currentFilenames = Directory.GetFiles(sourceDirectory, SearchPattern, SearchOption.AllDirectories);
+        var allCsFilenames = Directory.GetFiles(sourceDirectory, SearchPattern, SearchOption.AllDirectories);
+        var currentFilenames = allCsFilenames
+            .Where(filePath => !filePath.Contains(ExcludePattern, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
         var relativeFilenames = currentFilenames.Select(currentFilename => Path.GetRelativePath(sourceDirectory, currentFilename));
         var deletedDocuments = existingDocuments.Where(d => !relativeFilenames.Contains(d.RelativePath));
         return deletedDocuments;
