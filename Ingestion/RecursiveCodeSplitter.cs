@@ -81,7 +81,6 @@ public class RecursiveCodeSplitter
 
             // 2. Find all methods within the class
             var methodDeclarations = classDeclaration.DescendantNodes().OfType<MethodDeclarationSyntax>();
-
             foreach (var method in methodDeclarations)
             {
                 // ToFullString() includes trivia (whitespace, comments) which is better for context

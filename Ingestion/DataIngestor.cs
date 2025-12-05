@@ -65,8 +65,9 @@ public class DataIngestor(
     /// <returns></returns>
     private async Task DeleteChunksForDocumentAsync(CodeDocument codeDocument)
     {
-        var chunksToDelete = await chunksCollection
-            .GetAsync(codeChunk => codeChunk.CodeDocumentId == codeDocument.Id.ToString(), int.MaxValue)
+        string documentIdString = codeDocument.Id.ToString();
+        List<CodeChunk> chunksToDelete = await chunksCollection
+            .GetAsync(codeChunk => codeChunk.CodeDocumentId == documentIdString, int.MaxValue)
             .ToListAsync();
         if (chunksToDelete.Any())
         {

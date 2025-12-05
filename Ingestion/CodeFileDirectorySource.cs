@@ -6,13 +6,21 @@ namespace IDSChunk.Ingestion;
 public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSource
 {
     private const string SearchPattern = "*.cs";
-    private const string ExcludePattern = ".g.cs"; // What you want to exclude
+
+    private readonly List<string> _exclusionPatterns =
+    [
+        @".g.cs",
+        @"\obj\",
+        @"\AssemblyInfo.cs",
+        @"\packages\"
+    ];
 
     private static string GetDocumentHash(string filePath)
     {
-        using var md5 = MD5.Create();
+        using var sha256 = SHA256.Create();
         using var stream = File.OpenRead(filePath);
-        return Encoding.Default.GetString(md5.ComputeHash(stream));
+        var hashBytes = sha256.ComputeHash(stream);
+        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
     }
 
     /// <summary>
@@ -25,7 +33,7 @@ public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSourc
         var results = new List<CodeDocument>();
         var allCsFilenames = Directory.GetFiles(sourceDirectory, SearchPattern, SearchOption.AllDirectories);
         var codeFilenames = allCsFilenames
-            .Where(filePath => !filePath.Contains(ExcludePattern, StringComparison.OrdinalIgnoreCase))
+            .Where(csFilename => !_exclusionPatterns.Any(pattern => csFilename.Contains(pattern, StringComparison.Ordinal)))
             .ToArray();
 
         var existingDocumentHashmap = existingDocuments.ToDictionary(d => d.RelativePath);
@@ -59,7 +67,7 @@ public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSourc
     {
         var allCsFilenames = Directory.GetFiles(sourceDirectory, SearchPattern, SearchOption.AllDirectories);
         var currentFilenames = allCsFilenames
-            .Where(filePath => !filePath.Contains(ExcludePattern, StringComparison.OrdinalIgnoreCase))
+            .Where(csFilename => !_exclusionPatterns.Any(pattern => csFilename.Contains(pattern, StringComparison.Ordinal)))
             .ToArray();
 
         var relativeFilenames = currentFilenames.Select(currentFilename => Path.GetRelativePath(sourceDirectory, currentFilename));

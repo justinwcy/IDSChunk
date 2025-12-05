@@ -15,5 +15,5 @@ public class CodeDocument
 
     // dummy vector for abstractions only
     [VectorStoreVector(Dimensions: 768, DistanceFunction = DistanceFunction.CosineSimilarity)]
-    public ReadOnlyMemory<float>? DummyVector { get; set; }
+    public ReadOnlyMemory<float>? DummyVector { get; set; } = new float[768];
 }

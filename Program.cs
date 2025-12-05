@@ -1,8 +1,5 @@
-﻿using Grpc.Net.Client;
+﻿using IDSChunk.Ingestion;
 
-using IDSChunk.Ingestion;
-
-using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
