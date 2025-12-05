@@ -51,7 +51,7 @@ public class DataIngestor(
             await DeleteChunksForDocumentAsync(modifiedDocument);
             await documentsCollection.UpsertAsync(modifiedDocument);
 
-            IEnumerable<CodeChunk> newCodeChunks = source.CreateChunksForDocument(modifiedDocument);
+            IEnumerable<CodeChunk> newCodeChunks = await source.CreateChunksForDocument(modifiedDocument);
             await chunksCollection.UpsertAsync(newCodeChunks);
         }
 

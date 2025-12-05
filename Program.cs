@@ -55,6 +55,8 @@ var builder = Host.CreateDefaultBuilder()
 var host = builder.Build();
 
 // Change the path to the directory you want to ingest
+using var scope = host.Services.CreateScope();
+var embeddingGenerator = scope.ServiceProvider.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
 await DataIngestor.IngestDataAsync(
     host.Services,
-    new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS_GIT\IDS"));
+    new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS_GIT\IDS", embeddingGenerator));

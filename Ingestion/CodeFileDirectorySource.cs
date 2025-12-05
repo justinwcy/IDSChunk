@@ -1,9 +1,12 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.AI;
 
 namespace IDSChunk.Ingestion;
 
-public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSource
+public class CSharpFileDirectorySource(
+    string sourceDirectory,
+    IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator) : IIngestionSource
 {
     private const string SearchPattern = "*.cs";
 
@@ -80,10 +83,12 @@ public class CSharpFileDirectorySource(string sourceDirectory) : IIngestionSourc
     /// </summary>
     /// <param name="codeDocument">Code document instance</param>
     /// <returns>Code Chunks from the document</returns>
-    public IEnumerable<CodeChunk> CreateChunksForDocument(CodeDocument codeDocument)
+    public async Task<IEnumerable<CodeChunk>> CreateChunksForDocument(CodeDocument codeDocument)
     {
         RecursiveCodeSplitter recursiveCodeSplitter = 
-            new RecursiveCodeSplitter(@"C:\Users\jwong\Desktop\tutorial\IDSChunk\NomicVocab.txt");
-        return recursiveCodeSplitter.GetCodeChunks(codeDocument, sourceDirectory);
+            new RecursiveCodeSplitter(
+                @"C:\Users\jwong\Desktop\tutorial\IDSChunk\NomicVocab.txt", 
+                embeddingGenerator);
+        return await recursiveCodeSplitter.GetCodeChunks(codeDocument, sourceDirectory);
     }
 }

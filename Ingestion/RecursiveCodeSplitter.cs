@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Extensions.AI;
 using Microsoft.ML.Tokenizers;
 
 namespace IDSChunk.Ingestion;
@@ -8,10 +9,14 @@ namespace IDSChunk.Ingestion;
 public class RecursiveCodeSplitter
 {
     private readonly WordPieceTokenizer _tokenizer;
+    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
     private const int RecommendedMaxTokens = 512;
 
-    public RecursiveCodeSplitter(string vocabFilePath)
+    public RecursiveCodeSplitter(
+        string vocabFilePath, 
+        IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator)
     {
+        _embeddingGenerator = embeddingGenerator;
         try
         {
             _tokenizer = WordPieceTokenizer.Create(vocabFilePath);
@@ -30,10 +35,10 @@ public class RecursiveCodeSplitter
         return _tokenizer.CountTokens(text);
     }
 
-    public List<CodeChunk> GetCodeChunks(CodeDocument codeDocument, string sourceDirectory)
+    public async Task<List<CodeChunk>> GetCodeChunks(CodeDocument codeDocument, string sourceDirectory)
     {
         string filePath = Path.Combine(sourceDirectory, codeDocument.RelativePath);
-        string fullCodeString = File.ReadAllText(filePath);
+        string fullCodeString = await File.ReadAllTextAsync(filePath);
 
         // 1. Get the syntax tree and namespace
         SyntaxTree tree = CSharpSyntaxTree.ParseText(fullCodeString);
@@ -47,7 +52,8 @@ public class RecursiveCodeSplitter
         // 3. Recursively split any large units and collect the final chunks
         foreach (var chunk in splitCodeSnippets)
         {
-            finalChunks.AddRange(SplitChunkRecursively(chunk));
+            var splitChunks = await SplitChunkRecursively(chunk);
+            finalChunks.AddRange(splitChunks);
         }
 
         return finalChunks;
@@ -112,13 +118,15 @@ public class RecursiveCodeSplitter
     /// Recursively splits a chunk into smaller, token-limit-adhering chunks.
     /// Uses line-based splitting with overlap.
     /// </summary>
-    private List<CodeChunk> SplitChunkRecursively(CodeChunk codeChunk)
+    private async Task<List<CodeChunk>> SplitChunkRecursively(CodeChunk codeChunk)
     {
         int tokenCount = GetTokenCount(codeChunk.CodeSnippet);
 
         // Base case: Chunk is within the recommended limit
         if (tokenCount <= RecommendedMaxTokens)
         {
+            var embedding = await _embeddingGenerator.GenerateAsync(codeChunk.CodeSnippet);
+            codeChunk.CodeSnippetEmbedding = embedding.Vector;
             return new List<CodeChunk> { codeChunk };
         }
 
@@ -171,6 +179,7 @@ public class RecursiveCodeSplitter
             if (currentChunkLines.Any())
             {
                 string newSnippet = string.Join(Environment.NewLine, currentChunkLines);
+                var embedding = await _embeddingGenerator.GenerateAsync(newSnippet);
                 smallerChunks.Add(new CodeChunk
                 {
                     Id = Guid.CreateVersion7(),
@@ -178,7 +187,8 @@ public class RecursiveCodeSplitter
                     CodeSnippet = newSnippet,
                     ClassName = codeChunk.ClassName,
                     MethodName = codeChunk.MethodName, // Preserve context from the original large chunk
-                    Namespace = codeChunk.Namespace
+                    Namespace = codeChunk.Namespace,
+                    CodeSnippetEmbedding = embedding.Vector,
                 });
             }
 
