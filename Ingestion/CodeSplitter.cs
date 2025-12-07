@@ -7,7 +7,7 @@ namespace IDSChunk.Ingestion;
 
 public class CodeSplitter
 {
-    private readonly WordPieceTokenizer _tokenizer;
+    private readonly SentencePieceTokenizer _tokenizer;
     private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
     private const int RecommendedMaxTokens = 256;
 
@@ -18,20 +18,43 @@ public class CodeSplitter
         _embeddingGenerator = embeddingGenerator;
         try
         {
-            _tokenizer = WordPieceTokenizer.Create(vocabFilePath);
+            // for nomic-embed-text models
+            //_tokenizer = WordPieceTokenizer.Create(vocabFilePath);
+
+            using FileStream fileStream = File.OpenRead(vocabFilePath);
+            _tokenizer = SentencePieceTokenizer.Create(
+                modelStream: fileStream,
+                addBeginningOfSentence: true,
+                addEndOfSentence: false 
+            );
         }
         catch (FileNotFoundException)
         {
-            throw new InvalidOperationException($"Nomic vocab file not found at: {vocabFilePath}");
+            throw new InvalidOperationException($"Vocab file not found at: {vocabFilePath}");
         }
     }
 
     /// <summary>
     /// Counts the number of tokens a text will be encoded to by the Nomic tokenizer.
     /// </summary>
+    //public int GetTokenCount(string text)
+    //{
+    //    return _tokenizer.CountTokens(text);
+    //}
+
+    /// <summary>
+    /// Counts the number of tokens a text will be encoded to by the EmbeddingGemma tokenizer.
+    /// </summary>
     public int GetTokenCount(string text)
     {
-        return _tokenizer.CountTokens(text);
+        // 🚨 CRUCIAL: Must include the model's required prompt for accurate tokenization
+        string prompt = "task: search document | text: ";
+        string fullText = prompt + text;
+
+        // This is often handled internally by the library, but you must ensure 
+        // that special tokens like <bos> (beginning of sentence) are included
+        // in the count, as they are part of the model's input limit.
+        return _tokenizer.CountTokens(fullText);
     }
 
     public async Task<List<CodeChunk>> GetCodeChunks(CodeDocument codeDocument, string sourceDirectory)
