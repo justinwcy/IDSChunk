@@ -9,7 +9,7 @@ public class CodeSplitter
 {
     private readonly WordPieceTokenizer _tokenizer;
     private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
-    private const int RecommendedMaxTokens = 512;
+    private const int RecommendedMaxTokens = 256;
 
     public CodeSplitter(
         string vocabFilePath, 
