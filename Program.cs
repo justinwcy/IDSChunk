@@ -63,4 +63,4 @@ var embeddingGenerator = scope.ServiceProvider.GetService<IEmbeddingGenerator<st
 await DataIngestor.DeleteDocumentAndChunks(host.Services, @"IDSPICMF\IDSPICMFPlugIn.cs");
 await DataIngestor.IngestDataAsync(
     host.Services,
-    new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS", embeddingGenerator));
+    new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS_GIT\IDS", embeddingGenerator));
