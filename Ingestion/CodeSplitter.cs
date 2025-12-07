@@ -105,7 +105,8 @@ public class CodeSplitter
                 // Temporarily combine the lines to check the token count
                 string testSnippet = string.Join(Environment.NewLine, currentChunkLines.Concat(new[] { nextLine }));
 
-                if (GetTokenCount(testSnippet) <= RecommendedMaxTokens)
+                // if over the token count on the first line, just add the line so that we dont go into infinite loop
+                if (GetTokenCount(testSnippet) <= RecommendedMaxTokens || tempLineIndex == currentLineIndex)
                 {
                     currentChunkLines.Add(nextLine);
                     tempLineIndex++;

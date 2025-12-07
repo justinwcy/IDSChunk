@@ -45,6 +45,9 @@ public class DataIngestor(
         }
 
         var modifiedDocuments = source.GetNewOrModifiedDocuments(documentsFromSource);
+        int modifiedDocumentCount = modifiedDocuments.Count();
+
+        int counter = 0;
         foreach (var modifiedDocument in modifiedDocuments)
         {
             logger.LogInformation("Processing {documentId}", modifiedDocument.RelativePath);
@@ -55,16 +58,45 @@ public class DataIngestor(
             {
                 IEnumerable<CodeChunk> newCodeChunks = await source.CreateChunksForDocument(modifiedDocument);
                 await chunksCollection.UpsertAsync(newCodeChunks);
+
+                counter++;
+                logger.LogInformation("Progress {counter}/{modifiedDocumentCount}", counter, modifiedDocumentCount);
+
             }
             catch
             {
                 await DeleteChunksForDocumentAsync(modifiedDocument);
                 await documentsCollection.DeleteAsync(modifiedDocument.Id);
-                throw;
             }
         }
 
         logger.LogInformation("Ingestion is complete");
+    }
+
+    /// <summary>
+    /// For calling it through dependency injection
+    /// </summary>
+    /// <param name="services">service provider instance from host app</param>
+    /// <param name="source">Instance of Ingestion source to vectorize different data</param>
+    /// <returns></returns>
+    public static async Task DeleteDocumentAndChunks(IServiceProvider services, string relativePath)
+    {
+        using var scope = services.CreateScope();
+        var ingestor = scope.ServiceProvider.GetRequiredService<DataIngestor>();
+        await ingestor.DeleteDocumentAndChunks(relativePath);
+    }
+
+    public async Task DeleteDocumentAndChunks(string relativePath)
+    {
+        List<CodeDocument> documentToDelete = await documentsCollection
+            .GetAsync(codeDocument => codeDocument.RelativePath == relativePath, int.MaxValue)
+            .ToListAsync();
+
+        foreach (var document in documentToDelete)
+        {
+            await DeleteChunksForDocumentAsync(document);
+            await documentsCollection.DeleteAsync(document.Id);
+        }
     }
 
     /// <summary>

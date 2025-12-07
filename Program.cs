@@ -12,7 +12,8 @@ using Qdrant.Client;
 using Serilog;
 
 const string chatModelId = "gemma3:12b";
-const string embeddingModelId = "nomic-embed-text:latest";
+const string embeddingModelId = "embeddinggemma:latest";
+//const string embeddingModelId = "nomic-embed-text:latest";
 
 var builder = Host.CreateDefaultBuilder()
     .UseSerilog((context, configuration) =>
@@ -57,6 +58,9 @@ var host = builder.Build();
 // Change the path to the directory you want to ingest
 using var scope = host.Services.CreateScope();
 var embeddingGenerator = scope.ServiceProvider.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
+
+// delete the previous failed embedding to make sure its properly trained
+await DataIngestor.DeleteDocumentAndChunks(host.Services, @"IDSPICMF\IDSPICMFPlugIn.cs");
 await DataIngestor.IngestDataAsync(
     host.Services,
     new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS", embeddingGenerator));
