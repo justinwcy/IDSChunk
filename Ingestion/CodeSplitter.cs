@@ -47,7 +47,7 @@ public class CodeSplitter
     /// </summary>
     public int GetTokenCount(string text)
     {
-        // 🚨 CRUCIAL: Must include the model's required prompt for accurate tokenization
+        // CRUCIAL: Must include the model's required prompt for accurate tokenization
         string prompt = "task: search document | text: ";
         string fullText = prompt + text;
 

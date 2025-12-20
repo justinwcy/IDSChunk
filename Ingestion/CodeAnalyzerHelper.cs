@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Xml.Linq;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -8,6 +9,7 @@ namespace IDSChunk.Ingestion
 {
     public class CodeAnalyzerHelper
     {
+        private SemanticModel SemanticModel { get; set; }
         private CompilationUnitSyntax CompilationUnitSyntax { get; set; }
         private CodeDocument Document { get; set; }
 
@@ -15,6 +17,29 @@ namespace IDSChunk.Ingestion
         {
             CompilationUnitSyntax = GetCompilationUnitSyntax(filePath);
             Document = codeDocument;
+
+            var references = new List<MetadataReference>
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Uri).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(StringBuilder).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Path).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Reflection.Assembly).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Globalization.CultureInfo).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Xml.XmlNode).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Data.DataTable).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly.Location)
+            };
+
+            var compilation = CSharpCompilation.Create(
+                "DefaultCompilation",
+                syntaxTrees: new[] { CompilationUnitSyntax.SyntaxTree },
+                references: references
+            );
+
+            SemanticModel = compilation.GetSemanticModel(CompilationUnitSyntax.SyntaxTree);
         }
 
         /// <summary>
@@ -47,6 +72,53 @@ namespace IDSChunk.Ingestion
             }
 
             return stringBuilder.ToString();
+        }
+
+        /// <summary>
+        /// Returns only the using statements actually referenced in the given syntax node.
+        /// </summary>
+        public string GetUsingStatements(SyntaxNode node)
+        {
+            SyntaxList<UsingDirectiveSyntax> usingDirectives = CompilationUnitSyntax.Usings;
+            var identifiers = node.DescendantNodes()
+                                  .OfType<IdentifierNameSyntax>()
+                                  .ToList();
+
+            var usedUsings = new List<string>();
+
+            foreach (UsingDirectiveSyntax usingDirective in usingDirectives)
+            {
+                var nsText = usingDirective.Name.ToString();
+
+                // Try semantic match
+                bool isUsedSemantic = false;
+                var nsSymbol = SemanticModel.GetSymbolInfo(usingDirective.Name).Symbol as INamespaceSymbol;
+
+                if (nsSymbol != null)
+                {
+                    isUsedSemantic = identifiers
+                        .Select(id => SemanticModel.GetSymbolInfo(id).Symbol)
+                        .Any(symbol =>
+                            symbol?.ContainingNamespace != null &&
+                            (
+                                symbol.ContainingNamespace.ToDisplayString() == nsSymbol.ToDisplayString() ||
+                                symbol.ContainingNamespace.ToDisplayString().StartsWith(nsSymbol.ToDisplayString())
+                            )
+                        );
+                }
+
+                // Fallback: pure syntax matching if semantic fails
+                bool isUsedSyntax = identifiers
+                    .Any(idName => idName.Identifier.ValueText.StartsWith(nsText.Split('.').Last()) ||
+                                   idName.Identifier.ValueText == nsText.Split('.').Last());
+
+                if (isUsedSemantic || isUsedSyntax)
+                {
+                    usedUsings.Add(usingDirective.ToString());
+                }
+            }
+
+            return string.Join(Environment.NewLine, usedUsings);
         }
 
         /// <summary>
@@ -255,9 +327,9 @@ namespace IDSChunk.Ingestion
             {
                 string indentedEnum = IndentText(
                     memberDeclaration.GetText().ToString().TrimStart());
-
+                
                 StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.AppendLine(GetUsingStatements());
+                stringBuilder.AppendLine(GetUsingStatements(memberDeclaration));
                 stringBuilder.AppendLine();
                 stringBuilder.AppendLine($"namespace {GetNamespace()}");
                 stringBuilder.AppendLine("{");
@@ -293,7 +365,7 @@ namespace IDSChunk.Ingestion
 
                     string namespaceName = GetNamespace();
                     StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder.AppendLine(GetUsingStatements());
+                    stringBuilder.AppendLine(GetUsingStatements(structMember));
                     stringBuilder.AppendLine();
                     stringBuilder.AppendLine($"namespace {namespaceName}");
                     stringBuilder.AppendLine("{");
@@ -341,7 +413,7 @@ namespace IDSChunk.Ingestion
 
                     string namespaceName = GetNamespace();
                     StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder.AppendLine(GetUsingStatements());
+                    stringBuilder.AppendLine(GetUsingStatements(enumMember));
                     stringBuilder.AppendLine();
                     stringBuilder.AppendLine($"namespace {namespaceName}");
                     stringBuilder.AppendLine("{");
@@ -389,7 +461,7 @@ namespace IDSChunk.Ingestion
 
                     var namespaceName = GetNamespace();
                     StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder.AppendLine(GetUsingStatements());
+                    stringBuilder.AppendLine(GetUsingStatements(interfaceMember));
                     stringBuilder.AppendLine();
                     stringBuilder.AppendLine($"namespace {namespaceName}");
                     stringBuilder.AppendLine("{");
@@ -439,7 +511,7 @@ namespace IDSChunk.Ingestion
                     string namespaceName = GetNamespace();
 
                     StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder.AppendLine(GetUsingStatements());
+                    stringBuilder.AppendLine(GetUsingStatements(classDeclaration));
                     stringBuilder.AppendLine();
                     stringBuilder.AppendLine($"namespace {namespaceName}");
                     stringBuilder.AppendLine("{");
@@ -465,7 +537,7 @@ namespace IDSChunk.Ingestion
                     string indentedMemberString = IndentText(classMemberString);
 
                     StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder.AppendLine(GetUsingStatements());
+                    stringBuilder.AppendLine(GetUsingStatements(classDeclaration));
                     stringBuilder.AppendLine();
                     stringBuilder.AppendLine($"namespace {GetNamespace()}");
                     stringBuilder.AppendLine("{");
