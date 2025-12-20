@@ -15,7 +15,9 @@ public class CSharpFileDirectorySource(
         @".g.cs",
         @"\obj\",
         @"\AssemblyInfo.cs",
-        @"\packages\"
+        @"\packages\",
+        @"Amace",
+        @"Glenius"
     ];
 
     private static string GetDocumentHash(string filePath)

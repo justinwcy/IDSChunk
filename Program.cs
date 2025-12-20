@@ -64,7 +64,7 @@ var embeddingGenerator = scope.ServiceProvider.GetService<IEmbeddingGenerator<st
 await DataIngestor.DeleteDocumentAndChunks(host.Services, @"IDSPICMF\IDSPICMFPlugIn.cs");
 await DataIngestor.IngestDataAsync(
     host.Services,
-    new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS_GIT\IDS\IDSCMF\CustomMainObjects\Sample", embeddingGenerator));
+    new CSharpFileDirectorySource(@"C:\Users\jwong\Desktop\IDS_GIT\IDS", embeddingGenerator));
 
 //var systemMessage = new ChatMessage(ChatRole.System, "You are a helpful assistant specialized in retrieving code base knowledge using RAG");
 //string userQuery = "Tell me about ImplantDataModel";
